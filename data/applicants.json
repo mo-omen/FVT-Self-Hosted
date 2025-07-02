@@ -1,14 +1,1 @@
-[
-  {
-    "id": "99ac059a-8a16-48b5-8913-d18a2b08e226",
-    "FullName": "Matar",
-    "PassportNumber": "230606506",
-    "Nationality": "United Arab Emirates",
-    "FileNumber": "201202520205",
-    "UIDNumber": "220206561",
-    "Email": "mom@fmamfco.com",
-    "Phone": "050650619498",
-    "Documents": "[{\"id\":1751346659703,\"name\":\"Applicant Photo\",\"url\":\"/uploads/file-1751346643717-454130848.jpg\",\"isPhoto\":true},{\"id\":1751346813641,\"name\":\"passport\",\"url\":\"/uploads/file-1751346797633-905056768.jpg\",\"isPhoto\":false},{\"id\":1751346831482,\"name\":\"id front\",\"url\":\"/uploads/file-1751346815547-838704857.jpg\",\"isPhoto\":false},{\"id\":1751346839145,\"name\":\"id back\",\"url\":\"/uploads/file-1751346823217-421605391.jpg\",\"isPhoto\":false}]",
-    "CurrentStep": 1
-  }
-]
+
