@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freelance Visa Tracker (Self-Hosted)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-start: #F0F4F8;
+            --bg-end: #D9E2EC;
+            --text-primary: #1F2937;
+            --text-secondary: #4B5563;
+            --accent-primary: #2563EB;
+            --accent-secondary: #4F46E5;
+            --glass-bg: rgba(255, 255, 255, 0.5);
+            --glass-border: rgba(209, 213, 219, 0.3);
+            --shadow-color: rgba(31, 38, 135, 0.08);
+        }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%); 
+            color: var(--text-primary);
+            overflow: hidden;
+        }
+        #login-bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.5;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.6s ease-out forwards; }
+        .glass-effect { 
+            background: var(--glass-bg); 
+            backdrop-filter: blur(20px) saturate(180%); 
+            -webkit-backdrop-filter: blur(20px) saturate(180%); 
+            border-radius: 16px; 
+            border: 1px solid var(--glass-border); 
+            box-shadow: 0 8px 32px 0 var(--shadow-color);
+        }
+        .btn { 
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 4px 15px 0 rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .btn:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary { 
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%); 
+            color: white;
+        }
+        .btn-secondary { 
+            background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%); 
+            color: white;
+        }
+        .form-input, .form-select { 
+            background-color: rgba(255, 255, 255, 0.7); 
+            border: 1px solid rgba(209, 213, 219, 0.5); 
+            transition: all 0.3s ease;
+            border-radius: 8px;
+        }
+        .form-input:focus, .form-select:focus { 
+            background-color: white; 
+            border-color: var(--accent-primary); 
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+            outline: none;
+        }
+        .hidden { display: none; }
+        .loader-container { position: fixed; inset: 0; background-color: rgba(240, 244, 248, 0.8); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+        .loader { border: 5px solid #e0e7ff; border-top: 5px solid var(--accent-primary); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; } @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .custom-modal-overlay { position: fixed; inset: 0; background-color: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; transition: opacity 0.3s ease; }
+        .custom-modal-box { background: white; padding: 2rem; border-radius: 1rem; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 90%; width: 400px; transform: scale(0.95); transition: transform 0.3s ease; }
+        .custom-modal-overlay:not(.hidden) .custom-modal-box { transform: scale(1); }
+        .step { display: flex; align-items: center; margin-bottom: 1.5rem; } .step-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; margin-right: 1rem; flex-shrink: 0; transition: all 0.4s ease; } .step.completed .step-icon { background-color: #10B981; } .step.pending .step-icon { background-color: #9CA3AF; } .step.awaiting .step-icon { background-color: var(--accent-primary); animation: pulse 2s infinite; } @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); } 50% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); } }
+        .applicant-table { width: 100%; border-collapse: collapse; } .applicant-table th, .applicant-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--glass-border); } .applicant-table thead th { background-color: rgba(255, 255, 255, 0.3); font-weight: 600; color: var(--text-secondary); } .applicant-table tbody tr { background-color: var(--glass-bg); transition: background-color 0.3s ease; } .applicant-table tbody tr:hover { background-color: rgba(255, 255, 255, 0.8); }
+        .view-toggle-btn.active { background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); color: var(--accent-primary); } .view-toggle-btn { color: #6b7280; transition: all 0.2s ease-in-out; }
+        .draggable { cursor: grab; } .dragging { opacity: 0.5; background: #cce5ff; }
+        .stat-card { transition: all 0.3s ease; } .stat-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px -5px var(--shadow-color); }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <canvas id="login-bg-canvas"></canvas>
+
+    <!-- Loading Spinner -->
+    <div id="loader" class="loader-container hidden">
+        <div class="loader"></div>
+    </div>
+
+    <!-- Custom Alert/Confirm Modal -->
+    <div id="custom-modal" class="custom-modal-overlay hidden">
+        <div class="custom-modal-box glass-effect">
+            <h3 id="custom-modal-title" class="custom-modal-title text-gray-800"></h3>
+            <p id="custom-modal-body" class="custom-modal-body text-gray-600"></p>
+            <div id="custom-modal-buttons" class="custom-modal-buttons"></div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div id="app-container" class="w-full h-screen">
+        <!-- Login Page -->
+        <div id="login-page" class="w-full h-full flex items-center justify-center fade-in p-4">
+            <div class="w-full max-w-md text-center">
+                <div class="glass-effect p-8 md:p-12 rounded-2xl">
+                    <h1 class="text-4xl font-bold text-gray-800 mb-2">Visa Tracker</h1>
+                    <p class="text-gray-500 mb-8">Streamline Your Visa Processing Workflow</p>
+                    <div class="space-y-4">
+                        <button id="admin-btn" class="w-full btn btn-primary font-bold py-3 px-4 rounded-lg text-lg"><i class="fas fa-user-shield mr-2"></i> Admin Portal</button>
+                        <button id="user-btn" class="w-full btn btn-secondary font-bold py-3 px-4 rounded-lg text-lg"><i class="fas fa-user mr-2"></i> User View</button>
+                    </div>
+                </div>
+                <footer class="mt-8 text-gray-500 text-sm"><p>&copy; 2024 Visa Tracking Solutions. All rights reserved.</p></footer>
+            </div>
+        </div>
+
+        <!-- Admin Password Modal -->
+        <div id="admin-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+            <div class="glass-effect p-8 rounded-2xl w-full max-w-sm fade-in">
+                <form id="admin-login-form">
+                    <h2 class="text-2xl font-bold text-gray-700 mb-4">Admin Login</h2>
+                    <input type="password" id="admin-password" class="form-input w-full p-3 rounded-lg mb-4" placeholder="Enter password" required>
+                    <p id="admin-error" class="text-red-500 text-sm mb-4 hidden">Incorrect password.</p>
+                    <div class="flex justify-end space-x-4">
+                        <button type="button" id="cancel-admin-login" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancel</button>
+                        <button type="submit" class="btn btn-primary font-bold py-2 px-4 rounded-lg">Login</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Admin Dashboard -->
+        <div id="admin-dashboard" class="hidden w-full h-screen flex flex-col">
+            <header class="glass-effect p-4 shadow-md flex justify-between items-center z-10 flex-shrink-0">
+                <h1 class="text-xl font-bold text-gray-700">Admin Dashboard</h1>
+                <div>
+                     <button id="settings-btn" class="btn bg-white hover:bg-gray-50 text-gray-700 font-bold py-2 px-4 rounded-lg mr-4"><i class="fas fa-cog"></i> Settings</button>
+                     <button class="logout-btn btn btn-secondary font-bold py-2 px-4 rounded-lg"><i class="fas fa-sign-out-alt mr-2"></i>Logout</button>
+                </div>
+            </header>
+            <main class="flex-grow p-6 overflow-auto">
+                <!-- Stats Section -->
+                <div id="stats-section" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"></div>
+
+                <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                    <div class="flex items-center gap-4">
+                        <h2 class="text-2xl font-semibold text-gray-800">Applicants</h2>
+                        <div id="admin-view-toggle" class="flex items-center bg-gray-200 rounded-lg p-1">
+                            <button data-view="grid" class="view-toggle-btn active p-2 rounded-md" title="Grid View"><i class="fas fa-th-large"></i></button>
+                            <button data-view="list" class="view-toggle-btn p-2 rounded-md" title="List View"><i class="fas fa-list"></i></button>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4 w-full md:w-auto">
+                        <div class="relative w-full md:w-64">
+                            <input type="search" id="admin-search-input" class="form-input w-full p-2 pl-10 rounded-lg" placeholder="Search anything...">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                        <button id="add-applicant-btn" class="btn btn-primary font-bold py-2 px-4 rounded-lg flex-shrink-0"><i class="fas fa-plus mr-2"></i>Add New</button>
+                    </div>
+                </div>
+                <div id="admin-applicant-list" class="transition-all duration-500"></div>
+            </main>
+        </div>
+        
+        <!-- User Dashboard -->
+        <div id="user-dashboard" class="hidden w-full h-screen flex flex-col">
+            <header class="glass-effect p-4 shadow-md flex justify-between items-center z-10 flex-shrink-0">
+                <h1 class="text-xl font-bold text-gray-700">User Dashboard</h1>
+                <button class="logout-btn btn btn-secondary font-bold py-2 px-4 rounded-lg"><i class="fas fa-sign-out-alt mr-2"></i>Logout</button>
+            </header>
+            <main class="flex-grow p-6 overflow-auto">
+                 <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                     <div class="flex items-center gap-4">
+                        <h2 class="text-2xl font-semibold text-gray-800">Applicants</h2>
+                        <div id="user-view-toggle" class="flex items-center bg-gray-200 rounded-lg p-1">
+                            <button data-view="grid" class="view-toggle-btn active p-2 rounded-md" title="Grid View"><i class="fas fa-th-large"></i></button>
+                            <button data-view="list" class="view-toggle-btn p-2 rounded-md" title="List View"><i class="fas fa-list"></i></button>
+                        </div>
+                    </div>
+                    <div class="relative w-full md:w-64">
+                        <input type="search" id="user-search-input" class="form-input w-full p-2 pl-10 rounded-lg" placeholder="Search anything...">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                </div>
+                <div id="user-applicant-list" class="transition-all duration-500"></div>
+            </main>
+        </div>
+
+        <!-- Add/Edit Applicant Modal -->
+        <div id="applicant-form-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+            <div class="glass-effect p-8 rounded-2xl w-full max-w-lg fade-in">
+                <h2 id="applicant-form-title" class="text-2xl font-bold text-gray-700 mb-6">Add New Applicant</h2>
+                <form id="applicant-form" class="space-y-4">
+                    <input type="hidden" name="id">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" name="FullName" class="form-input w-full p-3 rounded-lg" placeholder="Full Name" required>
+                        <input type="text" name="PassportNumber" class="form-input w-full p-3 rounded-lg" placeholder="Passport Number" required>
+                        <select name="Nationality" id="nationality-select" class="form-select w-full p-3 rounded-lg" required></select>
+                        <input type="text" name="FileNumber" class="form-input w-full p-3 rounded-lg" placeholder="File Number" required>
+                        <input type="email" name="Email" class="form-input w-full p-3 rounded-lg" placeholder="Email Address" required>
+                        <input type="tel" name="Phone" class="form-input w-full p-3 rounded-lg" placeholder="Phone Number" required>
+                        <input type="text" name="UIDNumber" class="form-input w-full p-3 rounded-lg col-span-1 md:col-span-2" placeholder="UID Number" required>
+                    </div>
+                     <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Applicant Photo</label>
+                        <input type="file" name="photo" class="form-input w-full p-2 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" accept="image/*">
+                    </div>
+                    <div class="flex justify-end space-x-4 pt-4">
+                        <button type="button" id="cancel-applicant-form" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancel</button>
+                        <button type="submit" class="btn btn-primary font-bold py-2 px-4 rounded-lg">Save Applicant</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Applicant Detail Modal -->
+        <div id="applicant-detail-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="glass-effect p-8 rounded-2xl w-full max-w-4xl h-full md:h-5/6 fade-in flex flex-col">
+                <div id="detail-content" class="flex-grow overflow-y-auto pr-4"></div>
+                <div class="flex justify-end space-x-4 pt-4 border-t border-gray-300 flex-shrink-0">
+                    <button id="close-detail-modal" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4">
+             <div class="glass-effect p-8 rounded-2xl w-full max-w-3xl h-full md:h-5/6 fade-in flex flex-col">
+                <div class="flex justify-between items-center mb-6 flex-shrink-0">
+                    <h2 class="text-2xl font-bold text-gray-700">Settings</h2>
+                    <button id="close-settings-modal" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+                </div>
+                <div class="flex-grow overflow-y-auto pr-4 space-y-8">
+                    <!-- Security Settings -->
+                    <div class="bg-white/30 p-6 rounded-lg">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-1">Security</h3>
+                        <p class="text-sm text-gray-600 mb-4">Change the admin password.</p>
+                        <form id="password-change-form" class="space-y-4">
+                             <div>
+                                <label for="current-password" class="block text-sm font-medium text-gray-700">Current Password</label>
+                                <input type="password" id="current-password" class="form-input mt-1 block w-full rounded-md" required>
+                             </div>
+                             <div>
+                                <label for="new-password" class="block text-sm font-medium text-gray-700">New Password</label>
+                                <input type="password" id="new-password" class="form-input mt-1 block w-full rounded-md" required>
+                             </div>
+                             <div>
+                                <label for="confirm-new-password" class="block text-sm font-medium text-gray-700">Confirm New Password</label>
+                                <input type="password" id="confirm-new-password" class="form-input mt-1 block w-full rounded-md" required>
+                             </div>
+                             <div class="text-right">
+                                <button type="submit" class="btn btn-primary font-bold py-2 px-4 rounded-lg">Change Password</button>
+                             </div>
+                        </form>
+                    </div>
+
+                    <!-- Visa Steps Settings -->
+                    <div class="bg-white/30 p-6 rounded-lg">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-1">Visa Process Steps</h3>
+                        <p class="text-sm text-gray-600 mb-4">Drag and drop to reorder the steps. Changes are saved automatically.</p>
+                        <ul id="visa-steps-list" class="space-y-2">
+                            <!-- Steps will be rendered here by JavaScript -->
+                        </ul>
+                        <form id="add-step-form" class="mt-4 flex gap-4">
+                            <input type="text" id="new-step-name" class="form-input flex-grow rounded-md" placeholder="Enter new step name" required>
+                            <button type="submit" class="btn btn-primary font-bold py-2 px-4 rounded-lg">Add Step</button>
+                        </form>
+                    </div>
+                </div>
+             </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- Global State ---
+        let appState = {
+            settings: { id: null, VISA_STEPS: [] },
+            applicants: [],
+            currentView: 'grid',
+            isLoading: true,
+            isAdmin: false,
+            adminPassword: "password123", // Default password, can be changed.
+            sessionTimeout: null // To hold the timeout ID for idle session
+        };
+
+        // --- API Endpoint ---
+        const API_BASE = '/api'; 
+
+        // --- Page Elements ---
+        const loader = document.getElementById('loader');
+        const loginPage = document.getElementById('login-page');
+        const adminDashboard = document.getElementById('admin-dashboard');
+        const userDashboard = document.getElementById('user-dashboard');
+        const adminSearchInput = document.getElementById('admin-search-input');
+        const userSearchInput = document.getElementById('user-search-input');
+        const adminModal = document.getElementById('admin-modal');
+        const applicantFormModal = document.getElementById('applicant-form-modal');
+        const applicantDetailModal = document.getElementById('applicant-detail-modal');
+        const settingsModal = document.getElementById('settings-modal');
+        const adminLoginForm = document.getElementById('admin-login-form');
+        const adminPasswordInput = document.getElementById('admin-password');
+        const adminError = document.getElementById('admin-error');
+        const applicantForm = document.getElementById('applicant-form');
+        const applicantFormTitle = document.getElementById('applicant-form-title');
+        const adminApplicantListContainer = document.getElementById('admin-applicant-list');
+        const userApplicantListContainer = document.getElementById('user-applicant-list');
+        const detailContentContainer = document.getElementById('detail-content');
+        const nationalitySelect = document.getElementById('nationality-select');
+        const visaStepsList = document.getElementById('visa-steps-list');
+        const addStepForm = document.getElementById('add-step-form');
+        const passwordChangeForm = document.getElementById('password-change-form');
+        const adminBtn = document.getElementById('admin-btn');
+        const userBtn = document.getElementById('user-btn');
+        const cancelAdminLoginBtn = document.getElementById('cancel-admin-login');
+        const addApplicantBtn = document.getElementById('add-applicant-btn');
+        const cancelApplicantFormBtn = document.getElementById('cancel-applicant-form');
+        const closeDetailModalBtn = document.getElementById('close-detail-modal');
+        const settingsBtn = document.getElementById('settings-btn');
+        const closeSettingsModalBtn = document.getElementById('close-settings-modal');
+        const logoutBtns = document.querySelectorAll('.logout-btn');
+        const viewToggleButtons = document.querySelectorAll('.view-toggle-btn');
+        const statsSection = document.getElementById('stats-section');
+        
+        // --- Data ---
+        const COUNTRIES = ["Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso","Burundi","Cabo Verde","Cambodia","Cameroon","Canada","Central African Republic","Chad","Chile","China","Colombia","Comoros","Congo, Democratic Republic of the","Congo, Republic of the","Costa Rica","Cote d'Ivoire","Croatia","Cuba","Cyprus","Czechia","Denmark","Djibouti","Dominica","Dominican Republic","Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia","Fiji","Finland","France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea","Guinea-Bissau","Guyana","Haiti","Honduras","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kiribati","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Mauritania","Mauritius","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nauru","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Korea","North Macedonia","Norway","Oman","Pakistan","Palau","Palestine State","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia","Rwanda","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Samoa","San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Timor-Leste","Togo","Tonga","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Tuvalu","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States of America","Uruguay","Uzbekistan","Vanuatu","Vatican City","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"];
+
+        // --- UTILITY & SESSION FUNCTIONS ---
+        const showLoader = (show) => loader.classList.toggle('hidden', !show);
+        const showPage = (pageToShow) => { [loginPage, adminDashboard, userDashboard].forEach(p => p.classList.add('hidden')); pageToShow.classList.remove('hidden'); pageToShow.classList.add('fade-in'); };
+        const openModal = (modal) => modal.classList.remove('hidden');
+        const closeModal = (modal) => modal.classList.add('hidden');
+
+        const logoutAdmin = () => {
+            if (appState.sessionTimeout) {
+                clearTimeout(appState.sessionTimeout);
+            }
+            sessionStorage.removeItem('adminSessionActive');
+            appState.isAdmin = false;
+            showPage(loginPage);
+        };
+
+        const resetIdleTimer = () => {
+            if (appState.sessionTimeout) {
+                clearTimeout(appState.sessionTimeout);
+            }
+            if (appState.isAdmin) {
+                sessionStorage.setItem('adminSessionActive', 'true');
+                appState.sessionTimeout = setTimeout(() => {
+                    customAlert("You have been logged out due to inactivity.", "Session Timeout").then(() => {
+                        logoutAdmin();
+                    });
+                }, 5 * 60 * 1000); // 5 minutes
+            }
+        };
+
+        const customAlert = (message, title = "Alert") => {
+            return new Promise(resolve => {
+                document.getElementById('custom-modal-title').textContent = title;
+                document.getElementById('custom-modal-body').textContent = message;
+                const buttonsContainer = document.getElementById('custom-modal-buttons');
+                buttonsContainer.innerHTML = `<button id="modal-ok-btn" class="btn btn-primary font-bold py-2 px-6 rounded-lg">OK</button>`;
+                openModal(document.getElementById('custom-modal'));
+                document.getElementById('modal-ok-btn').onclick = () => { closeModal(document.getElementById('custom-modal')); resolve(true); };
+            });
+        };
+
+        const customConfirm = (message, title = "Confirm") => {
+            return new Promise(resolve => {
+                document.getElementById('custom-modal-title').textContent = title;
+                document.getElementById('custom-modal-body').textContent = message;
+                const buttonsContainer = document.getElementById('custom-modal-buttons');
+                buttonsContainer.innerHTML = `
+                    <button id="modal-cancel-btn" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancel</button>
+                    <button id="modal-confirm-btn" class="btn btn-primary font-bold py-2 px-4 rounded-lg">Confirm</button>
+                `;
+                openModal(document.getElementById('custom-modal'));
+                document.getElementById('modal-confirm-btn').onclick = () => { closeModal(document.getElementById('custom-modal')); resolve(true); };
+                document.getElementById('modal-cancel-btn').onclick = () => { closeModal(document.getElementById('custom-modal')); resolve(false); };
+            });
+        };
+
+        // --- API FUNCTIONS ---
+        const apiCall = async (endpoint, method = 'GET', body = null, isFormData = false) => {
+            showLoader(true);
+            try {
+                const options = { method };
+                if (isFormData) {
+                    options.body = body;
+                } else if (body) {
+                    options.headers = { 'Content-Type': 'application/json' };
+                    options.body = JSON.stringify(body);
+                }
+                const response = await fetch(endpoint, options);
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || `HTTP error! status: ${response.status}`);
+                }
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    return response.json();
+                } else {
+                    return { success: true };
+                }
+            } catch (error) {
+                console.error('API Call Failed:', error);
+                await customAlert(`Error: ${error.message}`, "API Error");
+                return null;
+            } finally {
+                showLoader(false);
+            }
+        };
+        
+        const fetchAllData = async () => {
+            const settings = await apiCall(`${API_BASE}/settings`);
+            const applicants = await apiCall(`${API_BASE}/applicants`);
+            if (settings && applicants) {
+                appState.settings = settings;
+                appState.applicants = applicants;
+            } else {
+                await customAlert("Failed to load application data. Check if the server is running.", "Fatal Error");
+            }
+        };
+
+        // --- RENDER FUNCTIONS ---
+        const populateCountries = () => {
+            nationalitySelect.innerHTML = '<option value="" disabled selected>Select Nationality</option>';
+            COUNTRIES.forEach(country => {
+                const option = document.createElement('option');
+                option.value = country;
+                option.textContent = country;
+                nationalitySelect.appendChild(option);
+            });
+        };
+
+        const getStatus = (applicant) => {
+            const totalSteps = appState.settings.VISA_STEPS.length;
+            const currentStepIndex = applicant.CurrentStep || 0;
+            if (currentStepIndex >= totalSteps) return { status: "Visa Stamping Done", nextStep: "Process Complete", isComplete: true };
+            const status = currentStepIndex > 0 ? `${appState.settings.VISA_STEPS[currentStepIndex - 1]} Done` : 'Registered';
+            const nextStep = appState.settings.VISA_STEPS[currentStepIndex];
+            return { status, nextStep, isComplete: false };
+        };
+
+        const getApplicantPhoto = (applicant) => {
+            if (applicant.Documents) {
+                try {
+                    const docs = JSON.parse(applicant.Documents);
+                    const photo = docs.find(doc => doc.isPhoto);
+                    if (photo) return photo.url;
+                } catch(e) { /* Ignore parsing error */ }
+            }
+            return `https://placehold.co/100x100/a0aec0/ffffff?text=${applicant.FullName.substring(0,2).toUpperCase()}`;
+        };
+
+        const renderStats = () => {
+            const total = appState.applicants.length;
+            const completed = appState.applicants.filter(app => (app.CurrentStep || 0) >= appState.settings.VISA_STEPS.length).length;
+            const inProgress = total - completed;
+
+            statsSection.innerHTML = `
+                <div class="stat-card glass-effect p-6 rounded-xl text-center">
+                    <p class="text-4xl font-bold text-blue-600">${total}</p>
+                    <p class="text-sm font-medium text-gray-500 mt-2">Total Applicants</p>
+                </div>
+                <div class="stat-card glass-effect p-6 rounded-xl text-center">
+                    <p class="text-4xl font-bold text-amber-500">${inProgress}</p>
+                    <p class="text-sm font-medium text-gray-500 mt-2">In Progress</p>
+                </div>
+                <div class="stat-card glass-effect p-6 rounded-xl text-center">
+                    <p class="text-4xl font-bold text-green-500">${completed}</p>
+                    <p class="text-sm font-medium text-gray-500 mt-2">Completed</p>
+                </div>
+            `;
+        };
+
+        const renderApplicants = (filter = '') => {
+            const searchTerm = filter.toLowerCase();
+            const filteredApplicants = filter ? appState.applicants.filter(app => 
+                Object.values(app).some(val => 
+                    String(val).toLowerCase().includes(searchTerm)
+                )
+            ) : appState.applicants;
+            
+            const container = appState.isAdmin ? adminApplicantListContainer : userApplicantListContainer;
+            container.innerHTML = '';
+
+            if (appState.isAdmin) {
+                renderStats();
+            }
+
+            if (filteredApplicants.length === 0) {
+                container.innerHTML = `<p class="text-gray-500 col-span-full text-center mt-8">No applicants found.</p>`;
+                return;
+            }
+
+            if (appState.currentView === 'grid') {
+                container.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
+                filteredApplicants.forEach(app => {
+                    const { status, nextStep, isComplete } = getStatus(app);
+                    const photoUrl = getApplicantPhoto(app);
+                    const card = document.createElement('div');
+                    card.className = 'glass-effect p-4 rounded-xl flex flex-col space-y-3 transition-transform transform hover:-translate-y-1';
+                    const adminButtons = `<button data-id="${app.id}" class="edit-btn btn text-xs bg-yellow-100 text-yellow-700 font-bold py-1 px-3 rounded-lg"><i class="fas fa-edit"></i> Edit</button><button data-id="${app.id}" class="delete-btn btn text-xs bg-red-100 text-red-700 font-bold py-1 px-3 rounded-lg"><i class="fas fa-trash"></i> Delete</button>`;
+                    card.innerHTML = `<div class="flex items-center space-x-4"><img src="${photoUrl}" alt="Photo" class="w-20 h-20 rounded-full object-cover border-2 border-white"><div><h3 class="text-lg font-bold text-gray-800">${app.FullName}</h3><p class="text-sm text-gray-600">Passport: ${app.PassportNumber || 'N/A'}</p></div></div><div><p class="text-sm font-semibold text-gray-700">Status:</p><p class="text-sm font-bold ${isComplete ? 'text-green-600' : 'text-blue-600'}">${status}</p><p class="text-sm ${isComplete ? 'text-gray-500' : 'text-orange-600'}">Awaiting: ${nextStep}</p></div><div class="flex justify-end space-x-2 pt-2 border-t border-gray-200"><button data-id="${app.id}" class="view-btn btn text-xs bg-blue-100 text-blue-700 font-bold py-1 px-3 rounded-lg"><i class="fas fa-eye"></i> View</button>${appState.isAdmin ? adminButtons : ''}</div>`;
+                    container.appendChild(card);
+                });
+            } else { // List View
+                container.className = 'w-full overflow-x-auto glass-effect rounded-lg';
+                let tableHtml = `<table class="applicant-table w-full"><thead><tr><th>Applicant</th><th>Passport No.</th><th>Status</th><th>Next Step</th><th class="text-right">Actions</th></tr></thead><tbody>`;
+                filteredApplicants.forEach(app => {
+                    const { status, nextStep, isComplete } = getStatus(app);
+                    const photoUrl = getApplicantPhoto(app);
+                    const adminButtons = `<button data-id="${app.id}" class="edit-btn btn text-xs bg-yellow-100 text-yellow-700 font-bold py-1 px-2 rounded-lg" title="Edit"><i class="fas fa-edit"></i></button><button data-id="${app.id}" class="delete-btn btn text-xs bg-red-100 text-red-700 font-bold py-1 px-2 rounded-lg" title="Delete"><i class="fas fa-trash"></i></button>`;
+                    tableHtml += `<tr>
+                        <td><div class="flex items-center"><img src="${photoUrl}" class="w-10 h-10 rounded-full mr-3 object-cover"><div class="text-sm"><p class="font-bold text-gray-800">${app.FullName}</p><p class="text-gray-500">${app.Nationality || 'N/A'}</p></div></div></td>
+                        <td>${app.PassportNumber || 'N/A'}</td>
+                        <td><span class="font-semibold ${isComplete ? 'text-green-600' : 'text-blue-600'}">${status}</span></td>
+                        <td>${nextStep}</td>
+                        <td class="text-right"><div class="flex justify-end items-center space-x-2"><button data-id="${app.id}" class="view-btn btn text-xs bg-blue-100 text-blue-700 font-bold py-1 px-2 rounded-lg" title="View"><i class="fas fa-eye"></i></button>${appState.isAdmin ? adminButtons : ''}</div></td>
+                    </tr>`;
+                });
+                tableHtml += `</tbody></table>`;
+                container.innerHTML = tableHtml;
+            }
+        };
+
+        const renderApplicantDetails = (applicantId) => {
+            const applicant = appState.applicants.find(a => a.id == applicantId);
+            if (!applicant) return;
+            
+            const currentStepIndex = applicant.CurrentStep || 0;
+
+            let stepsHtml = '';
+            appState.settings.VISA_STEPS.forEach((step, index) => {
+                let statusClass = 'pending', icon = `<i class="fas fa-hourglass-start"></i>`, statusText = `Pending`;
+                if (index < currentStepIndex) { statusClass = 'completed'; statusText = 'Done'; icon = `<i class="fas fa-check"></i>`; } 
+                else if (index === currentStepIndex) { statusClass = 'awaiting'; statusText = `Awaiting Action`; icon = `<i class="fas fa-cogs"></i>`; }
+                
+                let actionButtons = '';
+                if(appState.isAdmin) {
+                    const undoButton = `<button data-id="${applicant.id}" data-step="${index}" class="undo-step-btn btn bg-gray-200 text-gray-600 text-xs py-1 px-3 rounded-lg" title="Undo Step"><i class="fas fa-undo"></i></button>`;
+                    const markDoneButton = `<button data-id="${applicant.id}" data-step="${index}" class="mark-done-btn btn btn-primary text-xs py-1 px-3 rounded-lg" ${index > currentStepIndex ? 'disabled' : ''}>Mark as Done</button>`;
+
+                    if(index < currentStepIndex) { // Completed step
+                         actionButtons = undoButton;
+                    } else if (index === currentStepIndex) { // Awaiting step
+                         actionButtons = `${undoButton} ${markDoneButton}`;
+                    } else { // Pending step
+                         actionButtons = markDoneButton;
+                    }
+                }
+                
+                stepsHtml += `<div class="step ${statusClass}">
+                                <div class="step-icon">${icon}</div>
+                                <div class="step-content flex-grow">
+                                    <p class="step-title">${step}</p>
+                                    <p class="step-status">${statusText}</p>
+                                </div>
+                                <div class="flex items-center space-x-2">${actionButtons}</div>
+                              </div>`;
+            });
+
+            let documentsHtml = '';
+            let documentListItems = '';
+            const docs = applicant.Documents ? JSON.parse(applicant.Documents) : [];
+            if (docs.length > 0) {
+                docs.forEach(doc => {
+                    documentListItems += `<li class="flex items-center justify-between bg-white bg-opacity-50 p-2 rounded-lg"><span class="text-gray-700"><i class="fas ${doc.isPhoto ? 'fa-user-circle' : 'fa-file-alt'} mr-2"></i>${doc.name}</span><div class="flex items-center space-x-3"><a href="${doc.url}" target="_blank" class="text-blue-600 hover:text-blue-800" title="View"><i class="fas fa-eye"></i></a><a href="${doc.url}" download="${doc.name}" class="text-green-600 hover:text-green-800" title="Download"><i class="fas fa-download"></i></a>${appState.isAdmin ? `<button data-applicant-id="${applicant.id}" data-doc-id="${doc.id}" class="delete-doc-btn text-red-500 hover:text-red-700" title="Delete"><i class="fas fa-trash"></i></button>` : ''}</div></li>`;
+                });
+            } else {
+                documentListItems = '<p class="text-gray-500 text-sm">No documents uploaded.</p>';
+            }
+
+            if (appState.isAdmin) {
+                documentsHtml = `<div class="mt-8 pt-6 border-t"><h3 class="text-lg font-semibold text-gray-700 mb-4">Documents</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div><h4 class="font-semibold mb-2">Uploaded Files</h4><ul class="space-y-2">${documentListItems}</ul></div><div class="glass-effect -m-2 p-4 rounded-lg"><h4 class="font-semibold mb-2">Upload New Document</h4><form id="document-upload-form" data-applicant-id="${applicant.id}" class="space-y-3"><input type="text" name="documentName" class="form-input w-full p-2 rounded-lg" placeholder="Document Name" required><input type="file" name="documentFile" class="form-input w-full p-2 file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required><button type="submit" class="btn btn-primary w-full py-2 rounded-lg">Upload</button></form></div></div></div>`;
+            } else {
+                 documentsHtml = `<div class="mt-8 pt-6 border-t"><h3 class="text-lg font-semibold text-gray-700 mb-4">Documents</h3><ul class="space-y-2">${documentListItems}</ul></div>`;
+            }
+            
+            const photoUrl = getApplicantPhoto(applicant);
+            detailContentContainer.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-8"><div class="md:col-span-1 text-center"><img src="${photoUrl}" alt="Photo" class="w-40 h-40 rounded-full object-cover border-4 border-white shadow-lg mx-auto mb-4"><h2 class="text-2xl font-bold text-gray-800">${applicant.FullName}</h2><p class="text-gray-600">${applicant.Nationality}</p></div><div class="md:col-span-2 glass-effect -m-4 p-6 rounded-lg"><h3 class="text-lg font-semibold text-gray-700 mb-4 border-b pb-2">Applicant Information</h3><div class="grid grid-cols-2 gap-4 text-sm"><p><strong class="text-gray-500">Passport:</strong><br>${applicant.PassportNumber}</p><p><strong class="text-gray-500">File No:</strong><br>${applicant.FileNumber}</p><p><strong class="text-gray-500">Email:</strong><br>${applicant.Email}</p><p><strong class="text-gray-500">Phone:</strong><br>${applicant.Phone}</p><p class="col-span-2"><strong class="text-gray-500">UID:</strong><br>${applicant.UIDNumber}</p></div></div></div><div class="mt-8"><h3 class="text-lg font-semibold text-gray-700 mb-4 border-b pb-2">Visa Progress</h3>${stepsHtml}</div>${documentsHtml}`;
+            openModal(applicantDetailModal);
+        };
+
+        const renderVisaStepsSettings = () => {
+            visaStepsList.innerHTML = '';
+            appState.settings.VISA_STEPS.forEach((step, index) => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between bg-white bg-opacity-50 p-2 rounded-lg draggable';
+                li.setAttribute('draggable', true);
+                li.dataset.index = index;
+                li.innerHTML = `<div class="flex items-center"><i class="fas fa-grip-vertical text-gray-400 mr-3 cursor-grab"></i><span class="step-name">${step}</span></div><div><button class="edit-step-btn text-blue-600 hover:text-blue-800 mr-2" data-index="${index}"><i class="fas fa-edit"></i></button><button class="delete-step-btn text-red-500 hover:text-red-700" data-index="${index}"><i class="fas fa-trash"></i></button></div>`;
+                visaStepsList.appendChild(li);
+            });
+        };
+
+        // --- EVENT HANDLERS ---
+        const handleFormSubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const id = formData.get('id');
+            const photoFile = formData.get('photo');
+
+            let applicantData = { 
+                FullName: formData.get('FullName'), PassportNumber: formData.get('PassportNumber'), 
+                Nationality: formData.get('Nationality'), FileNumber: formData.get('FileNumber'), 
+                UIDNumber: formData.get('UIDNumber'), Email: formData.get('Email'), Phone: formData.get('Phone')
+            };
+
+            if (photoFile && photoFile.size > 0) {
+                const uploadFormData = new FormData();
+                uploadFormData.append('file', photoFile);
+                const uploadResult = await apiCall(`${API_BASE}/upload`, 'POST', uploadFormData, true);
+                if (uploadResult && uploadResult.url) {
+                    let docs = [];
+                    if(id) {
+                        const existingApplicant = appState.applicants.find(a => a.id == id);
+                        docs = existingApplicant.Documents ? JSON.parse(existingApplicant.Documents) : [];
+                    }
+                    docs = docs.filter(doc => !doc.isPhoto);
+                    docs.unshift({ id: Date.now(), name: 'Applicant Photo', url: uploadResult.url, isPhoto: true });
+                    applicantData.Documents = JSON.stringify(docs);
+                }
+            }
+
+            if (id) {
+                const updatedApplicant = await apiCall(`${API_BASE}/applicants/${id}`, 'PUT', applicantData);
+                if (updatedApplicant) {
+                    const index = appState.applicants.findIndex(a => a.id == id);
+                    appState.applicants[index] = updatedApplicant;
+                }
+            } else {
+                applicantData.CurrentStep = 0;
+                if (!applicantData.Documents) {
+                    applicantData.Documents = "[]";
+                }
+                const newApplicant = await apiCall(`${API_BASE}/applicants`, 'POST', applicantData);
+                if (newApplicant) {
+                    appState.applicants.unshift(newApplicant);
+                }
+            }
+            
+            renderApplicants(adminSearchInput.value);
+            closeModal(applicantFormModal);
+            applicantForm.reset();
+        };
+
+        const updateSettingsOnServer = async () => {
+            const result = await apiCall(`${API_BASE}/settings`, 'POST', appState.settings);
+            if (!result) {
+                await customAlert("Failed to save settings to the server.");
+                await fetchAllData();
+            }
+        };
+        
+        // --- EVENT LISTENERS ---
+        adminBtn.addEventListener('click', () => openModal(adminModal));
+        userBtn.addEventListener('click', () => { 
+            appState.isAdmin = false;
+            showPage(userDashboard); 
+            renderApplicants(); 
+        });
+        cancelAdminLoginBtn.addEventListener('click', () => closeModal(adminModal));
+        
+        adminLoginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (adminPasswordInput.value === appState.adminPassword) {
+                appState.isAdmin = true;
+                closeModal(adminModal);
+                showPage(adminDashboard);
+                renderApplicants();
+                resetIdleTimer(); // Start the idle timer on login
+                adminPasswordInput.value = '';
+                adminError.classList.add('hidden');
+            } else {
+                adminError.classList.remove('hidden');
+            }
+        });
+
+        logoutBtns.forEach(btn => btn.addEventListener('click', () => {
+            logoutAdmin();
+        }));
+
+        addApplicantBtn.addEventListener('click', () => { 
+            applicantForm.reset(); 
+            applicantForm.elements.id.value = ''; 
+            applicantFormTitle.textContent = "Add New Applicant"; 
+            openModal(applicantFormModal); 
+        });
+        cancelApplicantFormBtn.addEventListener('click', () => closeModal(applicantFormModal));
+        closeDetailModalBtn.addEventListener('click', () => closeModal(applicantDetailModal));
+        applicantForm.addEventListener('submit', handleFormSubmit);
+        adminSearchInput.addEventListener('input', (e) => renderApplicants(e.target.value));
+        userSearchInput.addEventListener('input', (e) => renderApplicants(e.target.value));
+
+        const applicantListClickHandler = async (e) => {
+            const button = e.target.closest('button');
+            if (!button) return;
+            const id = button.dataset.id;
+
+            if (button.classList.contains('view-btn')) {
+                renderApplicantDetails(id);
+            } else if (button.classList.contains('edit-btn')) {
+                const applicant = appState.applicants.find(a => a.id == id);
+                if (applicant) {
+                    applicantFormTitle.textContent = "Edit Applicant";
+                    for (const key in applicant) {
+                        if (applicantForm.elements[key]) {
+                            applicantForm.elements[key].value = applicant[key];
+                        }
+                    }
+                    applicantForm.elements.id.value = applicant.id;
+                    openModal(applicantFormModal);
+                }
+            } else if (button.classList.contains('delete-btn')) {
+                if (await customConfirm('Are you sure you want to delete this applicant?')) {
+                    const result = await apiCall(`${API_BASE}/applicants/${id}`, 'DELETE');
+                    if (result) {
+                        appState.applicants = appState.applicants.filter(a => a.id != id);
+                        renderApplicants(adminSearchInput.value);
+                    }
+                }
+            }
+        };
+        adminApplicantListContainer.addEventListener('click', applicantListClickHandler);
+        userApplicantListContainer.addEventListener('click', (e) => {
+            const target = e.target.closest('button.view-btn');
+            if (target) { renderApplicantDetails(target.dataset.id); }
+        });
+
+        detailContentContainer.addEventListener('submit', async e => {
+            if (e.target.id === 'document-upload-form') {
+                e.preventDefault();
+                const form = e.target;
+                const applicantId = form.dataset.applicantId;
+                const docName = form.elements.documentName.value;
+                const docFile = form.elements.documentFile.files[0];
+                if (applicantId && docName && docFile) {
+                    const uploadFormData = new FormData();
+                    uploadFormData.append('file', docFile);
+                    const uploadResult = await apiCall(`${API_BASE}/upload`, 'POST', uploadFormData, true);
+                    
+                    if (uploadResult && uploadResult.url) {
+                        const applicant = appState.applicants.find(a => a.id == applicantId);
+                        let docs = applicant.Documents ? JSON.parse(applicant.Documents) : [];
+                        docs.push({ id: Date.now(), name: docName, url: uploadResult.url, isPhoto: false });
+                        
+                        const updatedApplicant = await apiCall(`${API_BASE}/applicants/${applicantId}`, 'PUT', { Documents: JSON.stringify(docs) });
+                        if(updatedApplicant) {
+                            applicant.Documents = updatedApplicant.Documents;
+                            renderApplicantDetails(applicantId);
+                        }
+                    }
+                }
+            }
+        });
+
+        detailContentContainer.addEventListener('click', async (e) => {
+            const markDoneBtn = e.target.closest('.mark-done-btn');
+            const undoBtn = e.target.closest('.undo-step-btn');
+            const deleteDocBtn = e.target.closest('.delete-doc-btn');
+            
+            if (markDoneBtn) {
+                const applicantId = markDoneBtn.dataset.id;
+                const applicant = appState.applicants.find(a => a.id == applicantId);
+                if (applicant) {
+                    const newStep = (applicant.CurrentStep || 0) + 1;
+                    const updatedApplicant = await apiCall(`${API_BASE}/applicants/${applicantId}`, 'PUT', { CurrentStep: newStep });
+                    if(updatedApplicant) {
+                        applicant.CurrentStep = updatedApplicant.CurrentStep;
+                        renderApplicantDetails(applicantId);
+                        renderApplicants(adminSearchInput.value);
+                    }
+                }
+            } else if (undoBtn) {
+                const applicantId = undoBtn.dataset.id;
+                const applicant = appState.applicants.find(a => a.id == applicantId);
+                if (applicant && applicant.CurrentStep > 0) {
+                    const newStep = applicant.CurrentStep - 1;
+                    const updatedApplicant = await apiCall(`${API_BASE}/applicants/${applicantId}`, 'PUT', { CurrentStep: newStep });
+                    if(updatedApplicant) {
+                        applicant.CurrentStep = updatedApplicant.CurrentStep;
+                        renderApplicantDetails(applicantId);
+                        renderApplicants(adminSearchInput.value);
+                    }
+                }
+            } else if (deleteDocBtn) {
+                const applicantId = deleteDocBtn.dataset.applicantId;
+                const docId = parseInt(deleteDocBtn.dataset.docId, 10);
+                const applicant = appState.applicants.find(a => a.id == applicantId);
+                if (applicant && await customConfirm('Are you sure you want to delete this document?')) {
+                    let docs = JSON.parse(applicant.Documents);
+                    docs = docs.filter(d => d.id != docId);
+                    const updatedApplicant = await apiCall(`${API_BASE}/applicants/${applicantId}`, 'PUT', { Documents: JSON.stringify(docs) });
+                     if(updatedApplicant) {
+                        applicant.Documents = updatedApplicant.Documents;
+                        renderApplicantDetails(applicantId);
+                    }
+                }
+            }
+        });
+        
+        viewToggleButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                appState.currentView = e.currentTarget.dataset.view;
+                viewToggleButtons.forEach(b => b.classList.remove('active'));
+                document.querySelectorAll(`.view-toggle-btn[data-view="${appState.currentView}"]`).forEach(b => b.classList.add('active'));
+                const searchInput = appState.isAdmin ? adminSearchInput : userSearchInput;
+                renderApplicants(searchInput.value);
+            });
+        });
+        
+        settingsBtn.addEventListener('click', () => {
+            renderVisaStepsSettings();
+            openModal(settingsModal);
+        });
+        closeSettingsModalBtn.addEventListener('click', () => closeModal(settingsModal));
+
+        passwordChangeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const currentPassword = passwordChangeForm.elements['current-password'].value;
+            const newPassword = passwordChangeForm.elements['new-password'].value;
+            const confirmNewPassword = passwordChangeForm.elements['confirm-new-password'].value;
+            
+            if (currentPassword !== appState.adminPassword) {
+                return await customAlert("Current password is not correct.", "Error");
+            }
+            if (newPassword !== confirmNewPassword) {
+                return await customAlert("New passwords do not match.", "Error");
+            }
+
+            appState.adminPassword = newPassword;
+            await customAlert("Password changed successfully!", "Success");
+            passwordChangeForm.reset();
+        });
+
+        addStepForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newStepNameInput = document.getElementById('new-step-name');
+            const newStepName = newStepNameInput.value.trim();
+            if (newStepName) {
+                appState.settings.VISA_STEPS.push(newStepName);
+                updateSettingsOnServer();
+                renderVisaStepsSettings();
+                newStepNameInput.value = '';
+            }
+        });
+        
+        visaStepsList.addEventListener('click', async (e) => {
+            const target = e.target.closest('button');
+            if (!target) return;
+            const index = parseInt(target.dataset.index, 10);
+
+            if (target.classList.contains('delete-step-btn')) {
+                if (await customConfirm(`Are you sure you want to delete the step "${appState.settings.VISA_STEPS[index]}"?`)) {
+                    appState.settings.VISA_STEPS.splice(index, 1);
+                    updateSettingsOnServer();
+                    renderVisaStepsSettings();
+                }
+            } else if (target.classList.contains('edit-step-btn')) {
+                const currentName = appState.settings.VISA_STEPS[index];
+                const newName = prompt('Enter new name for the step:', currentName);
+                if (newName && newName.trim() !== '') {
+                    appState.settings.VISA_STEPS[index] = newName.trim();
+                    updateSettingsOnServer();
+                    renderVisaStepsSettings();
+                }
+            }
+        });
+        
+        let draggedItem = null;
+        visaStepsList.addEventListener('dragstart', (e) => { draggedItem = e.target; setTimeout(() => e.target.classList.add('dragging'), 0); });
+        visaStepsList.addEventListener('dragend', (e) => e.target.classList.remove('dragging'));
+        visaStepsList.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const afterElement = getDragAfterElement(visaStepsList, e.clientY);
+            if (afterElement == null) { visaStepsList.appendChild(draggedItem); } 
+            else { visaStepsList.insertBefore(draggedItem, afterElement); }
+        });
+        visaStepsList.addEventListener('drop', () => {
+            const newOrder = [...visaStepsList.querySelectorAll('li .step-name')].map(el => el.textContent);
+            appState.settings.VISA_STEPS = newOrder;
+            updateSettingsOnServer();
+            renderVisaStepsSettings();
+        });
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.draggable:not(.dragging)')];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; } 
+                else { return closest; }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        // --- Animated Background ---
+        const canvas = document.getElementById('login-bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function createParticles() {
+            particles = [];
+            let particleCount = Math.floor(canvas.width / 50);
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    radius: Math.random() * 1.5 + 1,
+                });
+            }
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+
+                if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+                if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(37, 99, 235, 0.4)';
+                ctx.fill();
+            });
+
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < 120) {
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.strokeStyle = `rgba(37, 99, 235, ${1 - dist / 120})`;
+                        ctx.stroke();
+                    }
+                }
+            }
+            requestAnimationFrame(animateParticles);
+        }
+
+        // --- INITIALIZATION & SESSION MANAGEMENT ---
+        const init = async () => {
+            showLoader(true);
+            populateCountries();
+            await fetchAllData();
+            
+            const sessionActive = sessionStorage.getItem('adminSessionActive');
+            if (sessionActive === 'true') {
+                appState.isAdmin = true;
+                showPage(adminDashboard);
+                renderApplicants();
+                resetIdleTimer();
+            } else {
+                showPage(loginPage);
+            }
+            showLoader(false);
+            
+            resizeCanvas();
+            createParticles();
+            animateParticles();
+        };
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            createParticles();
+        });
+
+        // Add event listeners to reset the idle timer on user activity
+        ['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart'].forEach(event => {
+            window.addEventListener(event, resetIdleTimer);
+        });
+
+        init();
+    });
+    </script>
+</body>
+</html>
