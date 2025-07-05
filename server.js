@@ -1,5 +1,5 @@
 // This is the backend server that runs on your Debian machine.
-// This version is modified to serve index.html from the project root.
+// This version is modified to serve index.html from the project root and handle data import/export.
 const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
@@ -19,7 +19,9 @@ const UPLOADS_DIR = path.join(__dirname, 'uploads');
 
 // --- MIDDLEWARE ---
 app.use(cors()); // Allow requests from the front-end
-app.use(express.json()); // Parse JSON bodies
+app.use(express.json({ limit: '10mb' })); // Parse JSON bodies, increase limit for import
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
 
 // Serve uploaded files statically from the /uploads directory
 app.use('/uploads', express.static(UPLOADS_DIR));
@@ -89,59 +91,4 @@ app.post('/api/applicants', async (req, res) => {
 // PUT (Update) an existing Applicant
 app.put('/api/applicants/:id', async (req, res) => {
     try {
-        const applicants = await readDB(APPLICANTS_FILE);
-        const index = applicants.findIndex(a => a.id === req.params.id);
-        if (index === -1) {
-            return res.status(404).json({ error: 'Applicant not found.' });
-        }
-        const updatedApplicant = { ...applicants[index], ...req.body };
-        applicants[index] = updatedApplicant;
-        await writeDB(APPLICANTS_FILE, applicants);
-        res.json(updatedApplicant);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to update applicant.' });
-    }
-});
-
-// DELETE an Applicant
-app.delete('/api/applicants/:id', async (req, res) => {
-    try {
-        let applicants = await readDB(APPLICANTS_FILE);
-        const initialLength = applicants.length;
-        applicants = applicants.filter(a => a.id !== req.params.id);
-        if (applicants.length === initialLength) {
-             return res.status(404).json({ error: 'Applicant not found.' });
-        }
-        await writeDB(APPLICANTS_FILE, applicants);
-        res.status(200).json({ message: 'Applicant deleted successfully.' });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to delete applicant.' });
-    }
-});
-
-// POST (Upload) a file
-app.post('/api/upload', upload.single('file'), (req, res) => {
-    if (!req.file) {
-        return res.status(400).send('No file uploaded.');
-    }
-    const fileUrl = `/uploads/${req.file.filename}`;
-    res.status(200).json({ url: fileUrl });
-});
-
-
-// --- ROOT ROUTE ---
-// Serve the index.html for any request that is not an API call or a static file
-app.get('*', (req, res) => {
-    // Check if the request is for an API route
-    if (req.path.startsWith('/api/')) {
-        return res.status(404).send('API endpoint not found.');
-    }
-    // Otherwise, send the main HTML file
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-
-// --- START SERVER ---
-app.listen(port, () => {
-    console.log(`Visa Tracker server listening on port ${port}`);
-});
+        const applicants = await readDB(APPLIC...
