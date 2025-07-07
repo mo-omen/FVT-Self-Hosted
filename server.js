@@ -107,7 +107,8 @@ app.put('/api/applicants/:id', async (req, res) => {
 // DELETE an Applicant
 app.delete('/api/applicants/:id', async (req, res) => {
     try {
-        let applicants = await readDB(APPLICPLICANTS_FILE);
+        // *** THIS IS THE CORRECTED LINE ***
+        let applicants = await readDB(APPLICANTS_FILE);
         const initialLength = applicants.length;
         applicants = applicants.filter(a => a.id !== req.params.id);
         if (applicants.length === initialLength) {
@@ -116,6 +117,7 @@ app.delete('/api/applicants/:id', async (req, res) => {
         await writeDB(APPLICANTS_FILE, applicants);
         res.status(200).json({ message: 'Applicant deleted successfully.' });
     } catch (error) {
+        console.error("Delete failed:", error); // Added for better server-side debugging
         res.status(500).json({ error: 'Failed to delete applicant.' });
     }
 });

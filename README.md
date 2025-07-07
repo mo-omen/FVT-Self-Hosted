@@ -2,7 +2,9 @@
 
 A simple, modern, and self-hosted web application to track the progress of freelance visa applications. Designed for small agencies or individuals managing multiple applicants, it provides a clean, user-friendly interface with both admin and user views.
 
-![Visa Tracker Screenshot](https://i.imgur.com/your-screenshot.png) ## Features
+![Visa Tracker Screenshot](https://i.imgur.com/your-screenshot.png) 
+
+## Features
 
 * **Secure & Private:** Self-hosted design means all your data stays on your server.
 * **Dual User Roles:**
@@ -88,6 +90,16 @@ A simple, modern, and self-hosted web application to track the progress of freel
 
 1.  Click the "User View" button on the main page.
 2.  This portal is read-only. You can search for applicants and view their progress, but you cannot make any changes.
+
+### Screenshots
+
+Here is a look at the application's interface.
+
+**Login Page:**
+![Login Page Screenshot](./screenshots/login-page.jpg)
+
+**Admin Dashboard:**
+![Dashboard Screenshot](./screenshots/dashboard-view.jpg)
 
 ## License
 
