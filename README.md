@@ -45,7 +45,7 @@ A simple, modern, and self-hosted web application to track the progress of freel
 
 1.  **Clone the repository or download the files:**
     ```bash
-    git clone [https://github.com/your-repo/visa-tracker.git](https://github.com/your-repo/visa-tracker.git)
+    git clone [https://github.com/mo-omen/FVT-Self-Hosted.git](https://github.com/mo-omen/FVT-Self-Hosted.git)
     cd visa-tracker
     ```
     Or, simply place all the project files (`server.js`, `index.html`, `package.json`, etc.) into a single directory on your server.
