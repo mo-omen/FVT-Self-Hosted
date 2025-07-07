@@ -9,6 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" rel="stylesheet">
+    <!-- Added for client-side file saving -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.0/FileSaver.min.js"></script>
     <style>
         :root {
             --bg-start: #F0F4F8;
@@ -21,14 +23,11 @@
             --glass-border: rgba(209, 213, 219, 0.3);
             --shadow-color: rgba(31, 38, 135, 0.08);
         }
-        html, body {
-             height: 100%;
-             overflow: hidden;
-        }
         body { 
             font-family: 'Inter', sans-serif; 
             background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%); 
             color: var(--text-primary);
+            overflow: hidden;
         }
         #login-bg-canvas {
             position: fixed;
@@ -59,6 +58,12 @@
             transform: translateY(-2px); 
             box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.1);
         }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 0 4px 15px 0 rgba(0, 0, 0, 0.05);
+        }
         .btn-primary { 
             background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%); 
             color: white;
@@ -82,7 +87,7 @@
         .hidden { display: none; }
         .loader-container { position: fixed; inset: 0; background-color: rgba(240, 244, 248, 0.8); z-index: 9999; display: flex; align-items: center; justify-content: center; }
         .loader { border: 5px solid #e0e7ff; border-top: 5px solid var(--accent-primary); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; } @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .custom-modal-overlay { position: fixed; inset: 0; background-color: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; transition: opacity 0.3s ease; padding: 1rem; }
+        .custom-modal-overlay { position: fixed; inset: 0; background-color: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; transition: opacity 0.3s ease; }
         .custom-modal-box { background: white; padding: 2rem; border-radius: 1rem; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 90%; width: 400px; transform: scale(0.95); transition: transform 0.3s ease; }
         .custom-modal-overlay:not(.hidden) .custom-modal-box { transform: scale(1); }
         .step { display: flex; align-items: center; margin-bottom: 1.5rem; } .step-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; margin-right: 1rem; flex-shrink: 0; transition: all 0.4s ease; } .step.completed .step-icon { background-color: #10B981; } .step.pending .step-icon { background-color: #9CA3AF; } .step.awaiting .step-icon { background-color: var(--accent-primary); animation: pulse 2s infinite; } @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); } 50% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); } }
@@ -95,7 +100,6 @@
 <body class="min-h-screen">
 
     <canvas id="login-bg-canvas"></canvas>
-    <input type="file" id="import-file-input" class="hidden" accept="application/json">
 
     <!-- Loading Spinner -->
     <div id="loader" class="loader-container hidden">
@@ -105,14 +109,14 @@
     <!-- Custom Alert/Confirm Modal -->
     <div id="custom-modal" class="custom-modal-overlay hidden">
         <div class="custom-modal-box glass-effect">
-            <h3 id="custom-modal-title" class="text-xl font-bold text-gray-800 mb-4"></h3>
-            <p id="custom-modal-body" class="text-gray-600 mb-6"></p>
+            <h3 id="custom-modal-title" class="text-xl font-bold mb-4 text-gray-800"></h3>
+            <p id="custom-modal-body" class="mb-6 text-gray-600"></p>
             <div id="custom-modal-buttons" class="flex justify-center gap-4"></div>
         </div>
     </div>
 
     <!-- Main Container -->
-    <div id="app-container" class="w-full h-full">
+    <div id="app-container" class="w-full h-screen">
         <!-- Login Page -->
         <div id="login-page" class="w-full h-full flex items-center justify-center fade-in p-4">
             <div class="w-full max-w-md text-center">
@@ -129,7 +133,7 @@
         </div>
 
         <!-- Admin Password Modal -->
-        <div id="admin-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div id="admin-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
             <div class="glass-effect p-8 rounded-2xl w-full max-w-sm fade-in">
                 <form id="admin-login-form">
                     <h2 class="text-2xl font-bold text-gray-700 mb-4">Admin Login</h2>
@@ -145,18 +149,19 @@
 
         <!-- Admin Dashboard -->
         <div id="admin-dashboard" class="hidden w-full h-screen flex flex-col">
-            <header class="glass-effect p-4 shadow-md flex flex-wrap justify-between items-center z-10 flex-shrink-0 gap-2">
-                <h1 class="text-xl font-bold text-gray-700 w-full md:w-auto">Admin Dashboard</h1>
-                <div class="flex flex-wrap items-center gap-2">
-                     <button id="import-btn" class="btn bg-white hover:bg-gray-50 text-gray-700 font-bold py-2 px-3 text-sm"><i class="fas fa-upload mr-1"></i> Import</button>
-                     <button id="export-btn" class="btn bg-white hover:bg-gray-50 text-gray-700 font-bold py-2 px-3 text-sm"><i class="fas fa-download mr-1"></i> Export</button>
-                     <button id="settings-btn" class="btn bg-white hover:bg-gray-50 text-gray-700 font-bold py-2 px-3 text-sm"><i class="fas fa-cog mr-1"></i> Settings</button>
-                     <button class="logout-btn btn btn-secondary font-bold py-2 px-3 text-sm"><i class="fas fa-sign-out-alt mr-1"></i>Logout</button>
+            <header class="glass-effect p-4 shadow-md flex justify-between items-center z-10 flex-shrink-0">
+                <h1 class="text-xl font-bold text-gray-700">Admin Dashboard</h1>
+                <div>
+                     <button id="import-btn" class="btn bg-white hover:bg-gray-50 text-gray-700 font-bold py-2 px-4 rounded-lg mr-2"><i class="fas fa-upload"></i> Import</button>
+                     <input type="file" id="import-file-input" class="hidden" accept=".json">
+                     <button id="export-btn" class="btn bg-white hover:bg-gray-50 text-gray-700 font-bold py-2 px-4 rounded-lg mr-2"><i class="fas fa-download"></i> Export</button>
+                     <button id="settings-btn" class="btn bg-white hover:bg-gray-50 text-gray-700 font-bold py-2 px-4 rounded-lg mr-4"><i class="fas fa-cog"></i> Settings</button>
+                     <button class="logout-btn btn btn-secondary font-bold py-2 px-4 rounded-lg"><i class="fas fa-sign-out-alt mr-2"></i>Logout</button>
                 </div>
             </header>
-            <main class="flex-grow p-4 md:p-6 overflow-auto">
+            <main class="flex-grow p-6 overflow-auto">
                 <!-- Stats Section -->
-                <div id="stats-section" class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6"></div>
+                <div id="stats-section" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"></div>
 
                 <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                     <div class="flex items-center gap-4">
@@ -180,11 +185,11 @@
         
         <!-- User Dashboard -->
         <div id="user-dashboard" class="hidden w-full h-screen flex flex-col">
-            <header class="glass-effect p-4 shadow-md flex flex-wrap justify-between items-center z-10 flex-shrink-0 gap-2">
-                <h1 class="text-xl font-bold text-gray-700 w-full md:w-auto">User Dashboard</h1>
+            <header class="glass-effect p-4 shadow-md flex justify-between items-center z-10 flex-shrink-0">
+                <h1 class="text-xl font-bold text-gray-700">User Dashboard</h1>
                 <button class="logout-btn btn btn-secondary font-bold py-2 px-4 rounded-lg"><i class="fas fa-sign-out-alt mr-2"></i>Logout</button>
             </header>
-            <main class="flex-grow p-4 md:p-6 overflow-auto">
+            <main class="flex-grow p-6 overflow-auto">
                  <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                      <div class="flex items-center gap-4">
                         <h2 class="text-2xl font-semibold text-gray-800">Applicants</h2>
@@ -204,9 +209,9 @@
 
         <!-- Add/Edit Applicant Modal -->
         <div id="applicant-form-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div class="glass-effect p-6 md:p-8 rounded-2xl w-full max-w-lg fade-in flex flex-col max-h-full">
-                <h2 id="applicant-form-title" class="text-2xl font-bold text-gray-700 mb-6 flex-shrink-0">Add New Applicant</h2>
-                <form id="applicant-form" class="space-y-4 overflow-y-auto flex-grow">
+            <div class="glass-effect p-8 rounded-2xl w-full max-w-lg fade-in">
+                <h2 id="applicant-form-title" class="text-2xl font-bold text-gray-700 mb-6">Add New Applicant</h2>
+                <form id="applicant-form" class="space-y-4">
                     <input type="hidden" name="id">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <input type="text" name="FullName" class="form-input w-full p-3 rounded-lg" placeholder="Full Name" required>
@@ -221,7 +226,7 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">Applicant Photo</label>
                         <input type="file" name="photo" class="form-input w-full p-2 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" accept="image/*">
                     </div>
-                    <div class="flex justify-end space-x-4 pt-4 flex-shrink-0">
+                    <div class="flex justify-end space-x-4 pt-4">
                         <button type="button" id="cancel-applicant-form" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancel</button>
                         <button type="submit" class="btn btn-primary font-bold py-2 px-4 rounded-lg">Save Applicant</button>
                     </div>
@@ -231,9 +236,9 @@
 
         <!-- Applicant Detail Modal -->
         <div id="applicant-detail-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div class="glass-effect p-6 md:p-8 rounded-2xl w-full max-w-4xl h-full fade-in flex flex-col">
-                <div id="detail-content" class="flex-grow overflow-y-auto -mr-4 pr-4"></div>
-                <div class="flex justify-end space-x-4 pt-4 border-t border-gray-300 flex-shrink-0 mt-4">
+            <div class="glass-effect p-8 rounded-2xl w-full max-w-4xl h-full md:h-5/6 fade-in flex flex-col">
+                <div id="detail-content" class="flex-grow overflow-y-auto pr-4"></div>
+                <div class="flex justify-end space-x-4 pt-4 border-t border-gray-300 flex-shrink-0">
                     <button id="close-detail-modal" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Close</button>
                 </div>
             </div>
@@ -241,12 +246,12 @@
 
         <!-- Settings Modal -->
         <div id="settings-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4">
-             <div class="glass-effect p-6 md:p-8 rounded-2xl w-full max-w-3xl h-full fade-in flex flex-col">
+             <div class="glass-effect p-8 rounded-2xl w-full max-w-3xl h-full md:h-5/6 fade-in flex flex-col">
                 <div class="flex justify-between items-center mb-6 flex-shrink-0">
                     <h2 class="text-2xl font-bold text-gray-700">Settings</h2>
                     <button id="close-settings-modal" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
                 </div>
-                <div class="flex-grow overflow-y-auto -mr-4 pr-4 space-y-8">
+                <div class="flex-grow overflow-y-auto pr-4 space-y-8">
                     <!-- Security Settings -->
                     <div class="bg-white/30 p-6 rounded-lg">
                         <h3 class="text-lg font-semibold text-gray-800 mb-1">Security</h3>
@@ -285,6 +290,41 @@
                 </div>
              </div>
         </div>
+
+        <!-- Export Modal -->
+        <div id="export-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="glass-effect p-8 rounded-2xl w-full max-w-md fade-in">
+                <h2 class="text-2xl font-bold text-gray-700 mb-6">Export Applicants</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Select what to export:</label>
+                        <select id="export-scope-select" class="form-select w-full p-3 rounded-lg">
+                            <option value="all">All Applicants</option>
+                            <option value="selected" disabled>Selected Applicants (0)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Choose export format:</label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <button id="export-backup-btn" class="btn btn-primary py-3 px-4 rounded-lg text-left">
+                                <i class="fas fa-database mr-2"></i>
+                                <span class="font-bold">Backup File</span>
+                                <p class="text-xs font-normal opacity-80">A single .json file for re-importing.</p>
+                            </button>
+                            <button id="export-zip-btn" class="btn btn-primary py-3 px-4 rounded-lg text-left">
+                                <i class="fas fa-file-archive mr-2"></i>
+                                <span class="font-bold">Text & Docs</span>
+                                <p class="text-xs font-normal opacity-80">A .zip with a summary and all files.</p>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end mt-8">
+                    <button type="button" id="cancel-export-modal" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancel</button>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -293,6 +333,7 @@
         let appState = {
             settings: { id: null, VISA_STEPS: [] },
             applicants: [],
+            selectedApplicants: [], // For import/export
             currentView: 'grid',
             isLoading: true,
             isAdmin: false,
@@ -314,6 +355,7 @@
         const applicantFormModal = document.getElementById('applicant-form-modal');
         const applicantDetailModal = document.getElementById('applicant-detail-modal');
         const settingsModal = document.getElementById('settings-modal');
+        const exportModal = document.getElementById('export-modal');
         const adminLoginForm = document.getElementById('admin-login-form');
         const adminPasswordInput = document.getElementById('admin-password');
         const adminError = document.getElementById('admin-error');
@@ -337,9 +379,12 @@
         const logoutBtns = document.querySelectorAll('.logout-btn');
         const viewToggleButtons = document.querySelectorAll('.view-toggle-btn');
         const statsSection = document.getElementById('stats-section');
-        const importBtn = document.getElementById('import-btn');
         const exportBtn = document.getElementById('export-btn');
+        const importBtn = document.getElementById('import-btn');
         const importFileInput = document.getElementById('import-file-input');
+        const cancelExportModalBtn = document.getElementById('cancel-export-modal');
+        const exportBackupBtn = document.getElementById('export-backup-btn');
+        const exportZipBtn = document.getElementById('export-zip-btn');
         
         // --- Data ---
         const COUNTRIES = ["Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso","Burundi","Cabo Verde","Cambodia","Cameroon","Canada","Central African Republic","Chad","Chile","China","Colombia","Comoros","Congo, Democratic Republic of the","Congo, Republic of the","Costa Rica","Cote d'Ivoire","Croatia","Cuba","Cyprus","Czechia","Denmark","Djibouti","Dominica","Dominican Republic","Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia","Fiji","Finland","France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea","Guinea-Bissau","Guyana","Haiti","Honduras","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kiribati","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Mauritania","Mauritius","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nauru","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Korea","North Macedonia","Norway","Oman","Pakistan","Palau","Palestine State","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia","Rwanda","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Samoa","San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Timor-Leste","Togo","Tonga","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Tuvalu","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States of America","Uruguay","Uzbekistan","Vanuatu","Vatican City","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"];
@@ -369,7 +414,7 @@
                     customAlert("You have been logged out due to inactivity.", "Session Timeout").then(() => {
                         logoutAdmin();
                     });
-                }, 15 * 60 * 1000); // 15 minutes
+                }, 5 * 60 * 1000); // 5 minutes
             }
         };
 
@@ -412,7 +457,7 @@
                 }
                 const response = await fetch(endpoint, options);
                 if (!response.ok) {
-                    const err = await response.json().catch(() => ({ error: `HTTP error! status: ${response.status}` }));
+                    const err = await response.json();
                     throw new Error(err.error || `HTTP error! status: ${response.status}`);
                 }
                 const contentType = response.headers.get("content-type");
@@ -478,29 +523,33 @@
             const inProgress = total - completed;
 
             statsSection.innerHTML = `
-                <div class="stat-card glass-effect p-4 md:p-6 rounded-xl text-center">
+                <div class="stat-card glass-effect p-6 rounded-xl text-center">
                     <p class="text-4xl font-bold text-blue-600">${total}</p>
                     <p class="text-sm font-medium text-gray-500 mt-2">Total Applicants</p>
                 </div>
-                <div class="stat-card glass-effect p-4 md:p-6 rounded-xl text-center">
+                <div class="stat-card glass-effect p-6 rounded-xl text-center">
                     <p class="text-4xl font-bold text-amber-500">${inProgress}</p>
                     <p class="text-sm font-medium text-gray-500 mt-2">In Progress</p>
                 </div>
-                <div class="stat-card glass-effect p-4 md:p-6 rounded-xl text-center">
+                <div class="stat-card glass-effect p-6 rounded-xl text-center">
                     <p class="text-4xl font-bold text-green-500">${completed}</p>
                     <p class="text-sm font-medium text-gray-500 mt-2">Completed</p>
                 </div>
             `;
         };
 
-        const renderApplicants = (filter = '') => {
-            const searchTerm = filter.toLowerCase();
-            const filteredApplicants = filter ? appState.applicants.filter(app => 
+        const getFilteredApplicants = () => {
+            const searchTerm = (appState.isAdmin ? adminSearchInput.value : userSearchInput.value).toLowerCase();
+            if (!searchTerm) return [...appState.applicants];
+            return appState.applicants.filter(app => 
                 Object.values(app).some(val => 
                     String(val).toLowerCase().includes(searchTerm)
                 )
-            ) : appState.applicants;
-            
+            );
+        };
+
+        const renderApplicants = () => {
+            const filteredApplicants = getFilteredApplicants();
             const container = appState.isAdmin ? adminApplicantListContainer : userApplicantListContainer;
             container.innerHTML = '';
 
@@ -518,20 +567,28 @@
                 filteredApplicants.forEach(app => {
                     const { status, nextStep, isComplete } = getStatus(app);
                     const photoUrl = getApplicantPhoto(app);
+                    const isChecked = appState.selectedApplicants.includes(app.id);
                     const card = document.createElement('div');
-                    card.className = 'glass-effect p-4 rounded-xl flex flex-col space-y-3 transition-transform transform hover:-translate-y-1';
+                    card.className = 'glass-effect p-4 rounded-xl flex flex-col space-y-3 transition-transform transform hover:-translate-y-1 relative';
                     const adminButtons = `<button data-id="${app.id}" class="edit-btn btn text-xs bg-yellow-100 text-yellow-700 font-bold py-1 px-3 rounded-lg"><i class="fas fa-edit"></i> Edit</button><button data-id="${app.id}" class="delete-btn btn text-xs bg-red-100 text-red-700 font-bold py-1 px-3 rounded-lg"><i class="fas fa-trash"></i> Delete</button>`;
-                    card.innerHTML = `<div class="flex items-center space-x-4"><img src="${photoUrl}" alt="Photo" class="w-20 h-20 rounded-full object-cover border-2 border-white"><div><h3 class="text-lg font-bold text-gray-800">${app.FullName}</h3><p class="text-sm text-gray-600">Passport: ${app.PassportNumber || 'N/A'}</p></div></div><div><p class="text-sm font-semibold text-gray-700">Status:</p><p class="text-sm font-bold ${isComplete ? 'text-green-600' : 'text-blue-600'}">${status}</p><p class="text-sm ${isComplete ? 'text-gray-500' : 'text-orange-600'}">Awaiting: ${nextStep}</p></div><div class="flex justify-end space-x-2 pt-2 border-t border-gray-200"><button data-id="${app.id}" class="view-btn btn text-xs bg-blue-100 text-blue-700 font-bold py-1 px-3 rounded-lg"><i class="fas fa-eye"></i> View</button>${appState.isAdmin ? adminButtons : ''}</div>`;
+                    card.innerHTML = `
+                        ${appState.isAdmin ? `<div class="absolute top-3 right-3"><input type="checkbox" data-id="${app.id}" class="applicant-checkbox h-5 w-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300" ${isChecked ? 'checked' : ''}></div>` : ''}
+                        <div class="flex items-center space-x-4"><img src="${photoUrl}" alt="Photo" class="w-20 h-20 rounded-full object-cover border-2 border-white"><div><h3 class="text-lg font-bold text-gray-800">${app.FullName}</h3><p class="text-sm text-gray-600">Passport: ${app.PassportNumber || 'N/A'}</p></div></div><div><p class="text-sm font-semibold text-gray-700">Status:</p><p class="text-sm font-bold ${isComplete ? 'text-green-600' : 'text-blue-600'}">${status}</p><p class="text-sm ${isComplete ? 'text-gray-500' : 'text-orange-600'}">Awaiting: ${nextStep}</p></div><div class="flex justify-end space-x-2 pt-2 border-t border-gray-200"><button data-id="${app.id}" class="view-btn btn text-xs bg-blue-100 text-blue-700 font-bold py-1 px-3 rounded-lg"><i class="fas fa-eye"></i> View</button>${appState.isAdmin ? adminButtons : ''}</div>`;
                     container.appendChild(card);
                 });
             } else { // List View
                 container.className = 'w-full overflow-x-auto glass-effect rounded-lg';
-                let tableHtml = `<table class="applicant-table w-full"><thead><tr><th>Applicant</th><th>Passport No.</th><th>Status</th><th>Next Step</th><th class="text-right">Actions</th></tr></thead><tbody>`;
+                const allVisibleChecked = filteredApplicants.length > 0 && filteredApplicants.every(app => appState.selectedApplicants.includes(app.id));
+                let tableHtml = `<table class="applicant-table w-full"><thead><tr>
+                    ${appState.isAdmin ? `<th><input type="checkbox" id="select-all-checkbox" class="h-4 w-4 rounded" ${allVisibleChecked ? 'checked' : ''}></th>` : ''}
+                    <th>Applicant</th><th>Passport No.</th><th>Status</th><th>Next Step</th><th class="text-right">Actions</th></tr></thead><tbody>`;
                 filteredApplicants.forEach(app => {
                     const { status, nextStep, isComplete } = getStatus(app);
                     const photoUrl = getApplicantPhoto(app);
+                    const isChecked = appState.selectedApplicants.includes(app.id);
                     const adminButtons = `<button data-id="${app.id}" class="edit-btn btn text-xs bg-yellow-100 text-yellow-700 font-bold py-1 px-2 rounded-lg" title="Edit"><i class="fas fa-edit"></i></button><button data-id="${app.id}" class="delete-btn btn text-xs bg-red-100 text-red-700 font-bold py-1 px-2 rounded-lg" title="Delete"><i class="fas fa-trash"></i></button>`;
                     tableHtml += `<tr>
+                        ${appState.isAdmin ? `<td><input type="checkbox" data-id="${app.id}" class="applicant-checkbox h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300" ${isChecked ? 'checked' : ''}></td>` : ''}
                         <td><div class="flex items-center"><img src="${photoUrl}" class="w-10 h-10 rounded-full mr-3 object-cover"><div class="text-sm"><p class="font-bold text-gray-800">${app.FullName}</p><p class="text-gray-500">${app.Nationality || 'N/A'}</p></div></div></td>
                         <td>${app.PassportNumber || 'N/A'}</td>
                         <td><span class="font-semibold ${isComplete ? 'text-green-600' : 'text-blue-600'}">${status}</span></td>
@@ -573,8 +630,8 @@
                 stepsHtml += `<div class="step ${statusClass}">
                                 <div class="step-icon">${icon}</div>
                                 <div class="step-content flex-grow">
-                                    <p class="step-title font-semibold">${step}</p>
-                                    <p class="step-status text-sm text-gray-500">${statusText}</p>
+                                    <p class="step-title">${step}</p>
+                                    <p class="step-status">${statusText}</p>
                                 </div>
                                 <div class="flex items-center space-x-2">${actionButtons}</div>
                               </div>`;
@@ -585,7 +642,7 @@
             const docs = applicant.Documents ? JSON.parse(applicant.Documents) : [];
             if (docs.length > 0) {
                 docs.forEach(doc => {
-                    documentListItems += `<li class="flex items-center justify-between bg-white bg-opacity-50 p-2 rounded-lg"><span class="text-gray-700 truncate pr-2"><i class="fas ${doc.isPhoto ? 'fa-user-circle' : 'fa-file-alt'} mr-2"></i>${doc.name}</span><div class="flex items-center space-x-3 flex-shrink-0"><a href="${doc.url}" target="_blank" class="text-blue-600 hover:text-blue-800" title="View"><i class="fas fa-eye"></i></a><a href="${doc.url}" download="${doc.name}" class="text-green-600 hover:text-green-800" title="Download"><i class="fas fa-download"></i></a>${appState.isAdmin ? `<button data-applicant-id="${applicant.id}" data-doc-id="${doc.id}" class="delete-doc-btn text-red-500 hover:text-red-700" title="Delete"><i class="fas fa-trash"></i></button>` : ''}</div></li>`;
+                    documentListItems += `<li class="flex items-center justify-between bg-white bg-opacity-50 p-2 rounded-lg"><span class="text-gray-700"><i class="fas ${doc.isPhoto ? 'fa-user-circle' : 'fa-file-alt'} mr-2"></i>${doc.name}</span><div class="flex items-center space-x-3"><a href="${doc.url}" target="_blank" class="text-blue-600 hover:text-blue-800" title="View"><i class="fas fa-eye"></i></a><a href="${doc.url}" download="${doc.name}" class="text-green-600 hover:text-green-800" title="Download"><i class="fas fa-download"></i></a>${appState.isAdmin ? `<button data-applicant-id="${applicant.id}" data-doc-id="${doc.id}" class="delete-doc-btn text-red-500 hover:text-red-700" title="Delete"><i class="fas fa-trash"></i></button>` : ''}</div></li>`;
                 });
             } else {
                 documentListItems = '<p class="text-gray-500 text-sm">No documents uploaded.</p>';
@@ -598,7 +655,7 @@
             }
             
             const photoUrl = getApplicantPhoto(applicant);
-            detailContentContainer.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-8"><div class="md:col-span-1 text-center"><img src="${photoUrl}" alt="Photo" class="w-40 h-40 rounded-full object-cover border-4 border-white shadow-lg mx-auto mb-4"><h2 class="text-2xl font-bold text-gray-800">${applicant.FullName}</h2><p class="text-gray-600">${applicant.Nationality}</p></div><div class="md:col-span-2 glass-effect -m-4 p-6 rounded-lg"><h3 class="text-lg font-semibold text-gray-700 mb-4 border-b pb-2">Applicant Information</h3><div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm"><p><strong class="text-gray-500">Passport:</strong><br>${applicant.PassportNumber}</p><p><strong class="text-gray-500">File No:</strong><br>${applicant.FileNumber}</p><p><strong class="text-gray-500">Email:</strong><br>${applicant.Email}</p><p><strong class="text-gray-500">Phone:</strong><br>${applicant.Phone}</p><p class="sm:col-span-2"><strong class="text-gray-500">UID:</strong><br>${applicant.UIDNumber}</p></div></div></div><div class="mt-8"><h3 class="text-lg font-semibold text-gray-700 mb-4 border-b pb-2">Visa Progress</h3>${stepsHtml}</div>${documentsHtml}`;
+            detailContentContainer.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-8"><div class="md:col-span-1 text-center"><img src="${photoUrl}" alt="Photo" class="w-40 h-40 rounded-full object-cover border-4 border-white shadow-lg mx-auto mb-4"><h2 class="text-2xl font-bold text-gray-800">${applicant.FullName}</h2><p class="text-gray-600">${applicant.Nationality}</p></div><div class="md:col-span-2 glass-effect -m-4 p-6 rounded-lg"><h3 class="text-lg font-semibold text-gray-700 mb-4 border-b pb-2">Applicant Information</h3><div class="grid grid-cols-2 gap-4 text-sm"><p><strong class="text-gray-500">Passport:</strong><br>${applicant.PassportNumber}</p><p><strong class="text-gray-500">File No:</strong><br>${applicant.FileNumber}</p><p><strong class="text-gray-500">Email:</strong><br>${applicant.Email}</p><p><strong class="text-gray-500">Phone:</strong><br>${applicant.Phone}</p><p class="col-span-2"><strong class="text-gray-500">UID:</strong><br>${applicant.UIDNumber}</p></div></div></div><div class="mt-8"><h3 class="text-lg font-semibold text-gray-700 mb-4 border-b pb-2">Visa Progress</h3>${stepsHtml}</div>${documentsHtml}`;
             openModal(applicantDetailModal);
         };
 
@@ -612,73 +669,6 @@
                 li.innerHTML = `<div class="flex items-center"><i class="fas fa-grip-vertical text-gray-400 mr-3 cursor-grab"></i><span class="step-name">${step}</span></div><div><button class="edit-step-btn text-blue-600 hover:text-blue-800 mr-2" data-index="${index}"><i class="fas fa-edit"></i></button><button class="delete-step-btn text-red-500 hover:text-red-700" data-index="${index}"><i class="fas fa-trash"></i></button></div>`;
                 visaStepsList.appendChild(li);
             });
-        };
-
-        // --- IMPORT/EXPORT FUNCTIONS ---
-        const exportData = async () => {
-            if (!await customConfirm("This will export all applicants and settings into a single JSON file. Proceed?", "Confirm Export")) return;
-            
-            showLoader(true);
-            try {
-                const dataToExport = {
-                    version: "1.0.0",
-                    exportedAt: new Date().toISOString(),
-                    data: {
-                        settings: appState.settings,
-                        applicants: appState.applicants
-                    }
-                };
-
-                const dataStr = JSON.stringify(dataToExport, null, 2);
-                const blob = new Blob([dataStr], { type: "application/json" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `visa-tracker-backup-${new Date().toISOString().split('T')[0]}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            } catch (error) {
-                console.error("Export failed:", error);
-                await customAlert("An error occurred during export.", "Error");
-            } finally {
-                showLoader(false);
-            }
-        };
-
-        const handleImport = (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                try {
-                    const importedData = JSON.parse(e.target.result);
-                    if (!importedData.data || !importedData.data.settings || !importedData.data.applicants) {
-                        throw new Error("Invalid or corrupted backup file.");
-                    }
-
-                    const applicantCount = importedData.data.applicants.length;
-                    const stepCount = importedData.data.settings.VISA_STEPS.length;
-
-                    if (await customConfirm(`You are about to import ${applicantCount} applicants and ${stepCount} visa steps. This will OVERWRITE all current data. This action cannot be undone. Continue?`, "Confirm Import")) {
-                        const result = await apiCall(`${API_BASE}/import`, 'POST', importedData.data);
-                        if (result && result.success) {
-                            await customAlert("Data imported successfully! The application will now reload.", "Success");
-                            location.reload();
-                        } else {
-                            throw new Error(result ? result.error : "Import failed on the server.");
-                        }
-                    }
-                } catch (error) {
-                    console.error("Import failed:", error);
-                    await customAlert(`Import failed: ${error.message}`, "Error");
-                } finally {
-                    event.target.value = null;
-                }
-            };
-            reader.readAsText(file);
         };
 
         // --- EVENT HANDLERS ---
@@ -727,7 +717,7 @@
                 }
             }
             
-            renderApplicants(adminSearchInput.value);
+            renderApplicants();
             closeModal(applicantFormModal);
             applicantForm.reset();
         };
@@ -738,6 +728,130 @@
                 await customAlert("Failed to save settings to the server.");
                 await fetchAllData();
             }
+        };
+
+        const updateSelectedCount = () => {
+            const count = appState.selectedApplicants.length;
+            const scopeOption = document.querySelector('#export-scope-select option[value="selected"]');
+            if (scopeOption) {
+                scopeOption.textContent = `Selected Applicants (${count})`;
+                scopeOption.disabled = count === 0;
+                if (count === 0) {
+                    document.getElementById('export-scope-select').value = 'all';
+                }
+            }
+        };
+
+        const handleCheckboxChange = (e) => {
+            if (e.target.matches('.applicant-checkbox')) {
+                const id = e.target.dataset.id;
+                if (e.target.checked) {
+                    if (!appState.selectedApplicants.includes(id)) {
+                        appState.selectedApplicants.push(id);
+                    }
+                } else {
+                    appState.selectedApplicants = appState.selectedApplicants.filter(appId => appId !== id);
+                }
+                updateSelectedCount();
+                // We don't need to re-render the whole list for a single checkbox change, just update the select-all state
+                const selectAllCheckbox = document.getElementById('select-all-checkbox');
+                if(selectAllCheckbox) {
+                    const filtered = getFilteredApplicants();
+                    selectAllCheckbox.checked = filtered.length > 0 && filtered.every(app => appState.selectedApplicants.includes(app.id));
+                }
+            } else if (e.target.matches('#select-all-checkbox')) {
+                const displayedApplicants = getFilteredApplicants();
+                if (e.target.checked) {
+                    displayedApplicants.forEach(app => {
+                        if (!appState.selectedApplicants.includes(app.id)) {
+                            appState.selectedApplicants.push(app.id);
+                        }
+                    });
+                } else {
+                    const displayedIds = displayedApplicants.map(app => app.id);
+                    appState.selectedApplicants = appState.selectedApplicants.filter(id => !displayedIds.includes(id));
+                }
+                renderApplicants(); // Re-render to check/uncheck all visible boxes
+                updateSelectedCount();
+            }
+        };
+
+        const openExportModal = () => {
+            if (appState.applicants.length === 0) {
+                return customAlert("There are no applicants to export.");
+            }
+            updateSelectedCount();
+            openModal(document.getElementById('export-modal'));
+        };
+
+        const handleExport = async (type) => {
+            const scope = document.getElementById('export-scope-select').value;
+            let idsToExport = [];
+            if (scope === 'selected') {
+                if (appState.selectedApplicants.length === 0) {
+                    return customAlert("No applicants selected for export.");
+                }
+                idsToExport = appState.selectedApplicants;
+            }
+            
+            closeModal(document.getElementById('export-modal'));
+            showLoader(true);
+
+            try {
+                const response = await fetch(`${API_BASE}/export`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type, ids: idsToExport })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Export failed');
+                }
+
+                const blob = await response.blob();
+                const contentDisposition = response.headers.get('content-disposition');
+                let filename = type === 'backup' ? 'visa-tracker-backup.json' : 'export.zip';
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                    if (filenameMatch && filenameMatch.length > 1) {
+                        filename = filenameMatch[1];
+                    }
+                }
+                saveAs(blob, filename); // From FileSaver.js
+
+            } catch (error) {
+                console.error('Export failed:', error);
+                customAlert(`Error: ${error.message}`, 'Export Failed');
+            } finally {
+                showLoader(false);
+            }
+        };
+
+        const handleFileImport = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (!file.name.endsWith('.json')) {
+                e.target.value = '';
+                return customAlert("Invalid file type. Please select a '.json' backup file.", "Import Error");
+            }
+
+            const confirmed = await customConfirm(
+                "This will overwrite ALL current applicant and settings data. This action cannot be undone. Are you sure you want to proceed?",
+                "Confirm Data Import"
+            );
+
+            if (confirmed) {
+                const formData = new FormData();
+                formData.append('backupFile', file);
+                const result = await apiCall(`${API_BASE}/import`, 'POST', formData, true);
+                if (result && result.message) {
+                    await customAlert(result.message, "Import Successful");
+                    await init(); // Re-initialize the app to show new data
+                }
+            }
+            e.target.value = '';
         };
         
         // --- EVENT LISTENERS ---
@@ -777,11 +891,15 @@
         cancelApplicantFormBtn.addEventListener('click', () => closeModal(applicantFormModal));
         closeDetailModalBtn.addEventListener('click', () => closeModal(applicantDetailModal));
         applicantForm.addEventListener('submit', handleFormSubmit);
-        adminSearchInput.addEventListener('input', (e) => renderApplicants(e.target.value));
-        userSearchInput.addEventListener('input', (e) => renderApplicants(e.target.value));
+        adminSearchInput.addEventListener('input', () => renderApplicants());
+        userSearchInput.addEventListener('input', () => renderApplicants());
 
         const applicantListClickHandler = async (e) => {
             const button = e.target.closest('button');
+            if (e.target.matches('.applicant-checkbox') || e.target.matches('#select-all-checkbox')) {
+                 handleCheckboxChange(e);
+                 return;
+            }
             if (!button) return;
             const id = button.dataset.id;
 
@@ -804,7 +922,8 @@
                     const result = await apiCall(`${API_BASE}/applicants/${id}`, 'DELETE');
                     if (result) {
                         appState.applicants = appState.applicants.filter(a => a.id != id);
-                        renderApplicants(adminSearchInput.value);
+                        appState.selectedApplicants = appState.selectedApplicants.filter(appId => appId !== id);
+                        renderApplicants();
                     }
                 }
             }
@@ -856,7 +975,7 @@
                     if(updatedApplicant) {
                         applicant.CurrentStep = updatedApplicant.CurrentStep;
                         renderApplicantDetails(applicantId);
-                        renderApplicants(adminSearchInput.value);
+                        renderApplicants();
                     }
                 }
             } else if (undoBtn) {
@@ -868,7 +987,7 @@
                     if(updatedApplicant) {
                         applicant.CurrentStep = updatedApplicant.CurrentStep;
                         renderApplicantDetails(applicantId);
-                        renderApplicants(adminSearchInput.value);
+                        renderApplicants();
                     }
                 }
             } else if (deleteDocBtn) {
@@ -892,8 +1011,7 @@
                 appState.currentView = e.currentTarget.dataset.view;
                 viewToggleButtons.forEach(b => b.classList.remove('active'));
                 document.querySelectorAll(`.view-toggle-btn[data-view="${appState.currentView}"]`).forEach(b => b.classList.add('active'));
-                const searchInput = appState.isAdmin ? adminSearchInput : userSearchInput;
-                renderApplicants(searchInput.value);
+                renderApplicants();
             });
         });
         
@@ -902,9 +1020,6 @@
             openModal(settingsModal);
         });
         closeSettingsModalBtn.addEventListener('click', () => closeModal(settingsModal));
-        exportBtn.addEventListener('click', exportData);
-        importBtn.addEventListener('click', () => importFileInput.click());
-        importFileInput.addEventListener('change', handleImport);
 
         passwordChangeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -983,11 +1098,19 @@
             }, { offset: Number.NEGATIVE_INFINITY }).element;
         }
 
+        // --- Import/Export Listeners ---
+        exportBtn.addEventListener('click', openExportModal);
+        cancelExportModalBtn.addEventListener('click', () => closeModal(exportModal));
+        importBtn.addEventListener('click', () => importFileInput.click());
+        importFileInput.addEventListener('change', handleFileImport);
+        exportBackupBtn.addEventListener('click', () => handleExport('backup'));
+        exportZipBtn.addEventListener('click', () => handleExport('zip'));
+
+
         // --- Animated Background ---
         const canvas = document.getElementById('login-bg-canvas');
         const ctx = canvas.getContext('2d');
         let particles = [];
-        let animationFrameId;
 
         function resizeCanvas() {
             canvas.width = window.innerWidth;
@@ -1009,6 +1132,7 @@
         }
 
         function animateParticles() {
+            if (!ctx) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             particles.forEach(p => {
                 p.x += p.vx;
@@ -1038,13 +1162,7 @@
                     }
                 }
             }
-            animationFrameId = requestAnimationFrame(animateParticles);
-        }
-        
-        function stopAnimation() {
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId);
-            }
+            requestAnimationFrame(animateParticles);
         }
 
         // --- INITIALIZATION & SESSION MANAGEMENT ---
@@ -1052,6 +1170,7 @@
             showLoader(true);
             populateCountries();
             await fetchAllData();
+            appState.selectedApplicants = []; // Clear selection on init
             
             const sessionActive = sessionStorage.getItem('adminSessionActive');
             if (sessionActive === 'true') {
@@ -1059,20 +1178,23 @@
                 showPage(adminDashboard);
                 renderApplicants();
                 resetIdleTimer();
-                stopAnimation();
             } else {
                 showPage(loginPage);
+            }
+            showLoader(false);
+            
+            if (loginPage.offsetParent !== null) {
                 resizeCanvas();
                 createParticles();
                 animateParticles();
             }
-            showLoader(false);
         };
 
         window.addEventListener('resize', () => {
-            if (loginPage.classList.contains('hidden')) return;
-            resizeCanvas();
-            createParticles();
+            if (loginPage.offsetParent !== null) {
+                resizeCanvas();
+                createParticles();
+            }
         });
 
         // Add event listeners to reset the idle timer on user activity

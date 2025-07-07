@@ -1,11 +1,12 @@
 // This is the backend server that runs on your Debian machine.
-// This version is modified to serve index.html from the project root and handle data import/export.
+// This version is modified to serve index.html from the project root.
 const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');
 const cors = require('cors');
 const multer = require('multer');
+const archiver = require('archiver'); // For creating zip archives
 
 const app = express();
 const port = 4087;
@@ -19,9 +20,7 @@ const UPLOADS_DIR = path.join(__dirname, 'uploads');
 
 // --- MIDDLEWARE ---
 app.use(cors()); // Allow requests from the front-end
-app.use(express.json({ limit: '10mb' })); // Parse JSON bodies, increase limit for import
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
+app.use(express.json()); // Parse JSON bodies
 
 // Serve uploaded files statically from the /uploads directory
 app.use('/uploads', express.static(UPLOADS_DIR));
@@ -108,7 +107,7 @@ app.put('/api/applicants/:id', async (req, res) => {
 // DELETE an Applicant
 app.delete('/api/applicants/:id', async (req, res) => {
     try {
-        let applicants = await readDB(APPLICANTS_FILE);
+        let applicants = await readDB(APPLICPLICANTS_FILE);
         const initialLength = applicants.length;
         applicants = applicants.filter(a => a.id !== req.params.id);
         if (applicants.length === initialLength) {
@@ -130,49 +129,147 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     res.status(200).json({ url: fileUrl });
 });
 
-// POST (Import) data
-app.post('/api/import', async (req, res) => {
+// POST (Export) data
+app.post('/api/export', async (req, res) => {
+    const { type, ids } = req.body;
+    
     try {
-        const { settings, applicants } = req.body;
+        const allApplicants = await readDB(APPLICANTS_FILE);
+        const settings = await readDB(SETTINGS_FILE);
+        
+        const applicantsToExport = ids && ids.length > 0
+            ? allApplicants.filter(a => ids.includes(a.id))
+            : allApplicants;
 
-        if (!settings || !applicants) {
-            return res.status(400).json({ error: 'Invalid import data. Missing settings or applicants.' });
+        if (type === 'backup') {
+            const backupData = {
+                settings,
+                applicants: applicantsToExport
+            };
+            res.setHeader('Content-Disposition', 'attachment; filename="visa-tracker-backup.json"');
+            res.setHeader('Content-Type', 'application/json');
+            res.send(JSON.stringify(backupData, null, 2));
+        } else if (type === 'zip') {
+            const filename = `visa-tracker-export-${Date.now()}.zip`;
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            res.setHeader('Content-Type', 'application/zip');
+            
+            const archive = archiver('zip', {
+                zlib: { level: 9 } // Sets the compression level.
+            });
+
+            archive.on('error', (err) => {
+                throw err;
+            });
+
+            // pipe archive data to the response
+            archive.pipe(res);
+
+            // 1. Create and add text file with applicant data
+            let txtContent = 'Applicant Data Export\r\n=======================\r\n\r\n';
+            applicantsToExport.forEach(app => {
+                txtContent += `Name: ${app.FullName || 'N/A'}\r\n`;
+                txtContent += `Passport: ${app.PassportNumber || 'N/A'}\r\n`;
+                txtContent += `File Number: ${app.FileNumber || 'N/A'}\r\n`;
+                txtContent += `UID: ${app.UIDNumber || 'N/A'}\r\n`;
+                txtContent += `Email: ${app.Email || 'N/A'}\r\n`;
+                txtContent += `Phone: ${app.Phone || 'N/A'}\r\n`;
+                txtContent += `Nationality: ${app.Nationality || 'N/A'}\r\n`;
+                txtContent += '-----------------------\r\n';
+            });
+            archive.append(txtContent, { name: 'applicant-data.txt' });
+
+            // 2. Add all documents to the zip
+            for (const applicant of applicantsToExport) {
+                if (applicant.Documents) {
+                    try {
+                        const docs = JSON.parse(applicant.Documents);
+                        for (const doc of docs) {
+                            // doc.url is like '/uploads/filename.ext'
+                            const filePath = path.join(__dirname, doc.url);
+                            // check if file exists
+                            try {
+                                await fs.access(filePath);
+                                // Sanitize applicant name for folder
+                                const folderName = (applicant.FullName || 'unknown_applicant').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                                const docName = (doc.name || 'unknown_doc').replace(/[^a-z0-9.]/gi, '_').toLowerCase();
+                                archive.file(filePath, { name: `${folderName}/${docName}${path.extname(doc.url)}` });
+                            } catch (e) {
+                                console.warn(`File not found, skipping: ${filePath}`);
+                            }
+                        }
+                    } catch (e) {
+                        console.error(`Could not parse documents for applicant ${applicant.id}`, e);
+                    }
+                }
+            }
+            
+            await archive.finalize();
+
+        } else {
+            res.status(400).json({ error: 'Invalid export type.' });
+        }
+    } catch (error) {
+        console.error('Export error:', error);
+        res.status(500).json({ error: 'Failed to export data.' });
+    }
+});
+
+
+// POST (Import) a backup file
+const importUpload = multer({ storage: multer.memoryStorage() }); // Store file in memory
+app.post('/api/import', importUpload.single('backupFile'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No backup file uploaded.' });
+    }
+
+    try {
+        const backupData = JSON.parse(req.file.buffer.toString('utf-8'));
+
+        // Basic validation
+        if (!backupData.settings || !Array.isArray(backupData.applicants)) {
+            return res.status(400).json({ error: 'Invalid backup file format.' });
         }
 
-        // Overwrite the files with the imported data
-        await writeDB(SETTINGS_FILE, settings);
-        await writeDB(APPLICANTS_FILE, applicants);
+        // Overwrite the database files
+        await writeDB(SETTINGS_FILE, backupData.settings);
+        await writeDB(APPLICANTS_FILE, backupData.applicants);
 
-        res.status(200).json({ success: true, message: 'Data imported successfully.' });
+        res.json({ message: 'Import successful. Application data has been restored.' });
     } catch (error) {
         console.error('Import error:', error);
-        res.status(500).json({ error: 'Failed to import data.' });
+        res.status(500).json({ error: 'Failed to import data. The file may be corrupt or invalid.' });
     }
 });
 
 
 // --- ROOT ROUTE ---
 // Serve the index.html for any request that is not an API call or a static file
-app.get('*', (req, res) => {
-    // Check if the request is for an API route
+app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api/')) {
         return res.status(404).send('API endpoint not found.');
     }
-    // Otherwise, send the main HTML file
+    // Let static middleware handle file requests, otherwise send index.html
+    next();
+});
+
+app.use(express.static(__dirname)); // Serve root files like index.html
+app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 
 // --- START SERVER ---
 app.listen(port, async () => {
-    // Ensure data directory and files exist
+    // Ensure data and uploads directories exist
     try {
         await fs.mkdir(DB_PATH, { recursive: true });
         await fs.mkdir(UPLOADS_DIR, { recursive: true });
-        await fs.access(APPLICANTS_FILE).catch(() => fs.writeFile(APPLICANTS_FILE, '[]'));
-        await fs.access(SETTINGS_FILE).catch(() => fs.writeFile(SETTINGS_FILE, '{"id":"settings_1","VISA_STEPS":["Offer Letter","Labour Fees","Labour Insurance","Entry Permit","Change Status","Medical Test","Emirates ID","Contract Submition","Visa Stamping"]}'));
+        // Ensure files exist
+        await fs.access(APPLICANTS_FILE).catch(() => writeDB(APPLICANTS_FILE, []));
+        await fs.access(SETTINGS_FILE).catch(() => writeDB(SETTINGS_FILE, { id: "settings_1", VISA_STEPS: ["Offer Letter", "Labour Fees", "Labour Insurance", "Entry Permit", "Change Status", "Medical Test", "Emirates ID", "Contract Submition", "Visa Stamping"] }));
         console.log(`Visa Tracker server listening on port ${port}`);
     } catch (error) {
-        console.error("Failed to initialize database files:", error);
+        console.error("Failed to initialize server directories/files:", error);
     }
 });
